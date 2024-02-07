@@ -1,54 +1,207 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Weboscoket MQTT</title>
-  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-</head>
-<body>
-  Use WebSocket client to connect to MQTT server
-</body>
-<script>
-    const clientId = 'mqttjs_' + Math.random().toString(16).substr(2, 8)
-    const host = 'ws://broker.emqx.io:8083/mqtt'
-    const options = {
-      keepalive: 60,
-      clientId: clientId,
-      protocolId: 'MQTT',
-      protocolVersion: 4,
-      clean: true,
-      reconnectPeriod: 1000,
-      connectTimeout: 30 * 1000,
-      will: {
-        topic: 'WillMsg',
-        payload: 'Connection Closed abnormally..!',
-        qos: 0,
-        retain: false
-      },
-    }
-    console.log('Connecting mqtt client')
-    const client = mqtt.connect(host, options);
-    client.on("connect", ()=>{
-        console.log("connected to broker!");
-        client.subscribe("lpdw_annonces", {qos: 0});
-        console.log("Abonné au topic lpdw_annonces!");
-        client.publish("lpdw_annonces", clientId + " is connected!", {
-            qos:0,
-            retain:false,
-        });
 
-    });
-    client.on("message", (topic, message, packet)=>{
-        console.log(
-            `Received Message: ${message.toString()} On topic: ${topic}`
-        );
-    });
-    client.on('error', (err) => {
-      console.log('Connection error: ', err)
-      client.end()
-    })
-    client.on('reconnect', () => {
-      console.log('Reconnecting...')
-    })
-</script>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weboscoket MQTT</title>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f5f5f5;
+            margin: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #3498db;
+            color: #fff;
+            padding: 10px;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        #messageContainer {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-top: 10px;
+            max-height: 300px;
+            overflow-y: scroll;
+        }
+
+        #messageContainer div {
+            margin-bottom: 5px;
+        }
+
+        .alert {
+            background-color: #e74c3c;
+            color: #fff;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        .alert-success {
+            background-color: #2ecc71;
+        }
+
+        .alert-warning {
+            background-color: #f39c12;
+        }
+
+        .alert-info {
+            background-color: #3498db;
+        }
+    </style>
+</head>
+
+<body>
+    <label for="clientId">Enter Client ID:</label>
+    <input type="text" id="clientId" placeholder="Enter your Client ID">
+    <br>
+    <label for="topic">Enter Topic:</label>
+    <input type="text" id="topic" placeholder="Enter the MQTT Topic">
+    <button onclick="subscribeToTopic()">Subscribe to Topic</button>
+    <br>
+    <label for="message">Enter Message:</label>
+    <input type="text" id="message" placeholder="Enter your message">
+    <button onclick="sendMessage()">Send Message</button>
+    <br>
+    <div id="messageContainer"></div>
+
+    <script>
+        let client;
+
+        function subscribeToTopic() {
+            const customClientId = document.getElementById('clientId').value;
+            const clientId = customClientId || 'mqttjs_' + Math.random().toString(16).substr(2, 8);
+            const host = 'wss://mqtt.flespi.io:443';
+            const topic = document.getElementById('topic').value;
+
+            if (!clientId || !topic) {
+                showAlert('Please enter a Client ID and Topic before subscribing.', 'alert-warning');
+                return;
+            }
+
+            if (client && client.connected) {
+                showAlert('Already connected to MQTT. Unsubscribe first if needed.', 'alert-warning');
+                return;
+            }
+
+            const options = {
+                keepalive: 60,
+                clientId: clientId,
+                protocolId: 'MQTT',
+                protocolVersion: 4,
+                clean: true,
+                reconnectPeriod: 1000,
+                connectTimeout: 30 * 1000,
+                username:"9oFCMz3ojoMC9wEH0H4X50BoCInsRfPPtlf5I7hRlUhkeLP4hJPczgrZOCguHV7Y",
+                will: {
+                    topic: 'WillMsg',
+                    payload: 'Connection Closed abnormally..!',
+                    qos: 0,
+                    retain: false
+                },
+            };
+
+            console.log('Connecting mqtt client with clientId:', clientId);
+            client = mqtt.connect(host, options);
+
+            client.on('connect', () => {
+                console.log('Connected to broker!');
+                client.subscribe(topic, { qos: 0 }, (err) => {
+                    if (err) {
+                        showAlert('Error subscribing to the topic. Please check the console for details.', 'alert-warning');
+                        console.log('Subscription error: ', err);
+                    } else {
+                        showAlert(`Subscribed to topic ${topic}`, 'alert-success');
+                        console.log(`Subscribed to topic ${topic}`);
+                    }
+                });
+            });
+
+            client.on('message', (topic, message, packet) => {
+                console.log(`Received Message: ${message.toString()} on topic: ${topic}`);
+                displayMessage(`${clientId}: ${message}`);
+            });
+
+            client.on('error', (err) => {
+                console.log('Connection error: ', err);
+                showAlert('Connection error. Please check the console for details.', 'alert-warning');
+                client.end();
+            });
+
+            client.on('reconnect', () => {
+                console.log('Reconnecting...');
+            });
+        }
+
+        function sendMessage() {
+            const topic = document.getElementById('topic').value;
+            const message = document.getElementById('message').value;
+            const clientId = document.getElementById('clientId').value;
+
+            if (!topic) {
+                showAlert('Please enter a topic before sending a message.', 'alert-warning');
+                return;
+            }
+
+            if (!client || !client.connected) {
+                showAlert('Please connect to MQTT before sending a message.', 'alert-warning');
+                return;
+            }
+
+            if (!message) {
+                showAlert('Please enter a message before sending.', 'alert-warning');
+                return;
+            }
+
+            const fullMessage =  message; 
+
+            client.publish(topic, fullMessage, { qos: 0, retain: false });
+            console.log(`Message sent to topic ${topic}: ${fullMessage}`);
+            showAlert(`Message sent to topic ${topic}: ${fullMessage}`, 'alert-info');
+        }
+
+        function displayMessage(msg) {
+            const messageContainer = document.getElementById('messageContainer');
+            const messageDiv = document.createElement('div');
+            const parts = msg.split(':');
+
+            if (parts.length > 1) {
+                const clientId = parts[0].trim();
+                const messageContent = parts.slice(1).join(':').trim();
+                messageDiv.textContent = `${messageContent}`;
+                messageContainer.appendChild(messageDiv);
+            }
+        }
+
+        function showAlert(message, alertClass) {
+            const messageContainer = document.getElementById('messageContainer');
+            const alertDiv = document.createElement('div');
+            alertDiv.textContent = message;
+            alertDiv.classList.add('alert', alertClass);
+            messageContainer.appendChild(alertDiv);
+        }
+    </script>
+</body>
+
+</html>
