@@ -28,7 +28,22 @@
       },
     }
     console.log('Connecting mqtt client')
-    const client = mqtt.connect(host, options)
+    const client = mqtt.connect(host, options);
+    client.on("connect", ()=>{
+        console.log("connected to broker!");
+        client.subscribe("lpdw_annonces", {qos: 0});
+        console.log("Abonné au topic lpdw_annonces!");
+        client.publish("lpdw_annonces", clientId + " is connected!", {
+            qos:0,
+            retain:false,
+        });
+
+    });
+    client.on("message", (topic, message, packet)=>{
+        console.log(
+            `Received Message: ${message.toString()} On topic: ${topic}`
+        );
+    });
     client.on('error', (err) => {
       console.log('Connection error: ', err)
       client.end()
